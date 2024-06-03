@@ -1,4 +1,6 @@
-from typing import Optional, Union
+
+from typing import Optional, Union, List
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -8,11 +10,14 @@ from pyomeca import Angles
 
 from .processing import rototrans
 
+from .io import read, utils
+
 
 class Rototrans:
     def __new__(
         cls,
         data: Optional[Union[np.array, np.ndarray, xr.DataArray]] = None,
+        channels: Optional[list] = None,
         time: Optional[Union[np.array, list, pd.Series]] = None,
         **kwargs,
     ) -> xr.DataArray:
@@ -70,6 +75,9 @@ class Rototrans:
 
         if time is not None:
             coords["time"] = time
+            
+        if channels:
+            coords["channel"] = channels
 
         # Make sure last line reads [0, 0, 0, 1]
         zeros = data[3, :3, :]
@@ -85,7 +93,7 @@ class Rototrans:
 
         return xr.DataArray(
             data=data,
-            dims=("row", "col", "time"),
+            dims=("row", "col", "channel", "time"),
             coords=coords,
             name="rototrans",
             **kwargs,
@@ -282,3 +290,58 @@ class Rototrans:
             ```
         """
         return rototrans.rototrans_from_averaged_rototrans(cls, rt)
+    
+    @classmethod
+    def from_c3d(
+        cls,
+        filename: Union[str, Path],
+        usecols: Optional[List[Union[str, int]]] = None,
+        prefix_delimiter: Optional[str] = None,
+        suffix_delimiter: Optional[str] = None,
+        attrs: Optional[dict] = None,
+    ) -> xr.DataArray:
+        """
+        Markers DataArray from a c3d file.
+
+        Arguments:
+            filename: Any valid string path
+            usecols: All elements must either be positional or strings that correspond to column names.
+                For example, a valid list-like usecols parameter would be [0, 1, 2] or ['foo', 'bar', 'baz'].
+            prefix_delimiter: Delimiter that split each column name by its prefix (we keep only the column name)
+            suffix_delimiter: Delimiter that split each column name by its suffix (we keep only the column name)
+            attrs: attrs to be passed to xr.DataArray
+
+        Returns:
+            Markers `xarray.DataArray` with the specified data and coordinates
+
+        !!! example
+            To read [this c3d file](https://github.com/pyomeca/pyomeca/blob/master/tests/data/markers_analogs.c3d),
+            type:
+
+            ```python
+            from pyomeca import Markers
+
+            data_path = "./tests/data/markers_analogs.c3d"
+            markers = Markers.from_c3d(data_path)
+            ```
+
+            If you know the channel names, you can retrieve only the ones you are interested in:
+
+            ```python
+            channels = ["Daphnee:ASISl", "Daphnee:PSISr", "Daphnee:PSISl"]
+            markers = Markers.from_c3d(data_path, usecols=channels)
+            ```
+
+            Sometimes the channel name is delimited by a suffix or prefix.
+            To access the prefix, you can specify `prefix_delimiter` and `suffix_delimiter` for the suffix.
+            For example, if the name is `""Daphnee:ASISl"` and you specify `suffix_delimiter=":"`, you will select "Daphnee".
+            Similarly, if you specify `prefix_delimiter=":":
+
+            ```python
+            channels = ["ASISl", "PSISr", "PSISl"]
+            markers = Markers.from_c3d(data_path, prefix_delimiter=":")
+            ```
+        """
+        return read.read_c3d(
+            cls, filename, usecols, prefix_delimiter, suffix_delimiter, attrs
+        )

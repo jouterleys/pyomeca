@@ -8,7 +8,6 @@ import xarray as xr
 
 from .utils import col_spliter, find_end_header_in_opensim_file
 
-
 def read_c3d(
     caller: Callable,
     filename: Union[str, Path],
@@ -17,7 +16,8 @@ def read_c3d(
     suffix_delimiter: Optional[str] = None,
     attrs: Optional[dict] = None,
 ) -> xr.DataArray:
-    group = "ANALOG" if caller.__name__ == "Analogs" else "POINT"
+    group = "ANALOG" if caller.__name__ == "Analogs" else "ROTATION" if caller.__name__ == "Rototrans" else "POINT"
+
 
     reader = ezc3d.c3d(f"{filename}").c3d_swig
     columns = [
@@ -46,15 +46,25 @@ def read_c3d(
         data = get_data_function()
         channels = columns
 
-    data_by_frame = 1 if group == "POINT" else reader.header().nbAnalogByFrame()
-
+    if group in ["POINT", "ROTATION"]:
+        data_by_frame = 1
+    else:
+        data_by_frame = reader.header().nbAnalogByFrame()
+    
     attrs = attrs if attrs else {}
     attrs["first_frame"] = reader.header().firstFrame() * data_by_frame
     attrs["last_frame"] = reader.header().lastFrame() * data_by_frame
     attrs["rate"] = reader.header().frameRate() * data_by_frame
-    attrs["units"] = (
-        reader.parameters().group(group).parameter("UNITS").valuesAsString()[0]
-    )
+    
+    # Create a list of names from your_list
+    params_names = [obj.name() for obj in reader.parameters().group(group).parameters()]
+    # Check if any name contains "RATE"
+    if any('UNITS' in name for name in params_names):
+        attrs['units'] = reader.parameters().group(group).parameter("UNITS").valuesAsString()[0]
+    elif group == 'ROTATION':
+        attrs['units'] = 'pose_matrix'
+    else:
+        attrs['units'] = 'unknown'
 
     time = np.linspace(
         start=0, stop=data.shape[-1] / attrs["rate"], num=data.shape[-1], endpoint=False

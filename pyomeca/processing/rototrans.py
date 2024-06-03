@@ -6,8 +6,7 @@ from scipy.optimize import least_squares
 
 from pyomeca import Angles
 
-from ..processing import misc
-
+from ..processing import misc 
 
 def rototrans_from_euler_angles(
     caller: Callable,
