@@ -167,19 +167,38 @@ def rototrans_from_markers(
 def rototrans_from_transposed_rototrans(
     caller: Callable, rt: xr.DataArray
 ) -> xr.DataArray:
+    
     rt_t = np.zeros((4, 4, rt.time.size))
     rt_t[3, 3, :] = 1
-    rt_t = caller(rt_t)
-
-    # the rotation part is just the transposed of the rotation
-    rt_t.meca.rotation = rt.meca.rotation.transpose("col", "row", "time")
-
+    rt_t = caller(rt_t, time = rt.time)
+    
+    #.value added because the named dimensions were messing up the assingment to rt_t.meca.rotation
+    rt_t.meca.rotation = rt.meca.rotation.transpose("col", "row", "time").values 
+       
     # the translation part is "- rt_t * translation"
     rt_t.meca.translation = np.einsum(
         "ijk,jlk->ilk", -rt_t.meca.rotation, rt.meca.translation
     )
+    
+    # #---------------------------------
+    # # This def may need to be more flexible if more than 1 channel is present.
+    # # i.e. shape is (4,4,channel,time) vs (4,4,time)
+    # # Would it be strange to want to get the inverted transformation matrix across all channels if given?
+    # # rt_t.meca.rotation = rt.meca.rotation.transpose("col", "row", ...).values
+    #rt_t = np.zeros(rt.shape)
+    #rt_t[3, 3, :] = 1
+    #rt_t = caller(rt_t, time = rt.time, channels = rt.coords['channel'].values.tolist())
+    
+    #.value added because the named dimensions were messing up the assingment to rt_t.meca.rotation
+    #rt_t.meca.rotation = rt.meca.rotation.transpose("col", "row", ...).values 
+        
+    # the translation part is "- rt_t * translation"
+    #rt_t.meca.translation = np.expand_dims(np.einsum('ijkl,ijkl->ikl', -rt_t.meca.rotation, rt.meca.translation), axis=1)
+    
+    # #---------------------------------
 
     return rt_t
+
 
 
 def rototrans_from_averaged_rototrans(

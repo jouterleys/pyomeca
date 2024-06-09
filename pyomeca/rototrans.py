@@ -10,7 +10,7 @@ from pyomeca import Angles
 
 from .processing import rototrans
 
-from .io import read, utils
+from .io import read
 
 
 class Rototrans:
@@ -76,9 +76,9 @@ class Rototrans:
         if time is not None:
             coords["time"] = time
             
-        if channels:
+        if channels is not None:
             coords["channel"] = channels
-
+        
         # Make sure last line reads [0, 0, 0, 1]
         zeros = data[3, :3, :]
         ones = data[3, 3, :]
@@ -90,10 +90,17 @@ class Rototrans:
                 f"Here are some values that should be 0: {some_zeros}\n"
                 f"And others that should 1: {some_ones}"
             )
-
+        
+        # Not sure if this is bad practice?
+        # Should we do a better job at dynamically checking dims
+        if data.ndim == 3:
+            dims =("row", "col", "time")
+        elif data.ndim == 4:
+            dims =("row", "col", "channel", "time")
+        
         return xr.DataArray(
             data=data,
-            dims=("row", "col", "channel", "time"),
+            dims=dims,
             coords=coords,
             name="rototrans",
             **kwargs,
@@ -232,6 +239,31 @@ class Rototrans:
     def from_transposed_rototrans(cls, rt: xr.DataArray) -> xr.DataArray:
         """
         Rototrans DataArray from a tranposed Rototrans.
+
+        Arguments:
+            rt: Rototrans to transpose
+
+        Returns:
+            Transposed Rototrans `xarray.DataArray`
+
+        !!! example
+            ```python
+            from pyomeca import Rototrans
+
+            rt = Rototrans.from_random_data()
+
+            rt_t = Rototrans.from_transposed_rototrans(rt)
+            ```
+
+        !!! notes
+            The inverse Rototrans is, by definition, equivalent to the tranposed Rototrans.
+        """
+        return rototrans.rototrans_from_transposed_rototrans(cls, rt)
+    
+    @classmethod
+    def from_multiplied_rototrans(cls, rt: xr.DataArray) -> xr.DataArray:
+        """
+        Rototrans DataArray from the product of two Rototrans.
 
         Arguments:
             rt: Rototrans to transpose

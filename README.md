@@ -182,4 +182,4 @@ Pyomeca is an open-source project created and supported by the [S2M lab](https:/
 ## TO DO
 - [ ] Handle when segments disapear, which causes the last row to not be [0 0 0 1] which is checked in Rototrans Class
 - [ ] Update example documention for from_c3d method in RotoTrans class
-- [ ] Actually test if the return data array is useable for other methods...
+- [ ] Build a pose matrix multiplier class. matmul, '*' and '@' don't do the trick..
